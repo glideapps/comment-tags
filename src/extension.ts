@@ -36,9 +36,17 @@ export function activate(context: vscode.ExtensionContext) {
 	// The commandId parameter must match the command field in package.json
 	let disposable = vscode.commands.registerCommand('tags.tags', async () => {
 		// Get tag as active word on editor
+		let tag: string | undefined;
 		let editor = vscode.window.activeTextEditor;
-		if (editor === undefined || editor.selection.isEmpty) { return; };
-		let tag: string = editor.document.getText(editor.selection);
+		if (editor === undefined || editor.selection.isEmpty) {
+			tag = await vscode.window.showInputBox({ prompt: "tag to search for" });;
+		} else {
+			tag = editor.document.getText(editor.selection);
+		}
+
+		if (tag === undefined) {
+			return;
+		}
 
 		// Get the rootpath
 		let rootpath: string | undefined;
