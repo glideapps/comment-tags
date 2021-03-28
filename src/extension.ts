@@ -1,11 +1,10 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
-import * as child_process from 'child_process';
-import { ChildProcess } from 'node:child_process';
+import * as vscode from "vscode";
+import * as child_process from "child_process";
+import { ChildProcess } from "node:child_process";
 
-
-function formatOutput(stdout) {
+function formatOutput(stdout: readonly any[]) {
 	let out = Array();
 	let section = "";
 
@@ -21,7 +20,6 @@ function formatOutput(stdout) {
 		} else if (line.type === "end") {
 			out.push(section);
 		}
-
 	}
 
 	return out.join("\n\n");
@@ -30,16 +28,15 @@ function formatOutput(stdout) {
 // This method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('tags.tags', async () => {
+	let disposable = vscode.commands.registerCommand("tags.tags", async () => {
 		// Get tag as active word on editor
 		let tag: string | undefined;
 		let editor = vscode.window.activeTextEditor;
 		if (editor === undefined || editor.selection.isEmpty) {
-			tag = await vscode.window.showInputBox({ prompt: "tag to search for" });;
+			tag = await vscode.window.showInputBox({ prompt: "tag to search for" });
 		} else {
 			tag = editor.document.getText(editor.selection);
 		}
@@ -56,10 +53,13 @@ export function activate(context: vscode.ExtensionContext) {
 		} else {
 			rootpath = workSpace[0].uri.fsPath;
 		}
-		if (rootpath === undefined) { return; };
+		if (rootpath === undefined) {
+			return;
+		}
 
 		// Run ripgrep
-		let cmd: string = `rg` +
+		let cmd: string =
+			`rg` +
 			` --type-add 'typescript:*.ts'` +
 			` --type-add 'typescript:*.tsx'` +
 			` -ttypescript` +
@@ -72,8 +72,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// Process rg's stdout
 		let output = Array();
-		rg.stdout?.on('data', (data) => {
-			let lines = data.split('\n');
+		rg.stdout?.on("data", data => {
+			let lines = data.split("\n");
 			let matches = lines.map((line: string) => {
 				let json;
 				try {
@@ -88,24 +88,24 @@ export function activate(context: vscode.ExtensionContext) {
 			let filteredMatches = matches.filter((match: any) => match);
 			if (filteredMatches.length > 0) {
 				output = output.concat(filteredMatches);
-			};
+			}
 		});
-
 
 		// Show text document from string
-		rg.stdout?.on('end', () => {
-			vscode.workspace.openTextDocument(
-				//vscode.Uri.parse(`tags://${tag}`)
-				{ content: formatOutput(output), language: 'typescript' }
-			).then(doc => {
-				vscode.window.showTextDocument(doc);
-			});
+		rg.stdout?.on("end", () => {
+			vscode.workspace
+				.openTextDocument(
+					//vscode.Uri.parse(`tags://${tag}`)
+					{ content: formatOutput(output), language: "typescript" }
+				)
+				.then(doc => {
+					vscode.window.showTextDocument(doc);
+				});
 		});
-
 	});
 
 	context.subscriptions.push(disposable);
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() { }
+export function deactivate() {}
