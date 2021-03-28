@@ -4,8 +4,7 @@ import * as vscode from 'vscode';
 import * as child_process from 'child_process';
 import { ChildProcess } from 'node:child_process';
 
-
-function formatOutput(stdout) {
+function formatOutput(stdout: readonly any[]) {
 	let out = Array();
 	let section = "";
 
