@@ -4,22 +4,45 @@ import * as vscode from "vscode";
 import * as child_process from "child_process";
 import { ChildProcess } from "node:child_process";
 
-function formatOutput(stdout: readonly any[]) {
+function leftJustify(snippet: string) {
+	let matches = snippet.match(/^[\t ]*(?=.+)/gm);
+	if (matches) {
+		let minIndent = Math.min(...matches.map(match => match.length));
+		return snippet.replace(new RegExp(`^[\\t ]{${minIndent}}`, "gm"), '');
+	}
+	return snippet;
+}
+
+function formatOutput(stdout: readonly any[], tag) {
 	let out = Array();
-	let section = "";
+	let definitionIndex;
+	let link = "";
+	let comment = "";
+	let context = "";
 
 	for (let i = 0; i < stdout.length; i++) {
 		let line = stdout[i];
 		if (line.type === "begin") {
-			section = "";
+			comment = "";
+			context = "";
 		} else if (line.type === "match") {
-			section += `file://${line.data.path.text}#${line.data.line_number}\n`;
-			section += line.data.lines.text;
+			link = `file://${line.data.path.text}#${line.data.line_number}\n`;
+			comment = line.data.lines.text;
+			if (line.data.lines.text.match(new RegExp(`\\s+##${tag}:\\s+`, "g"))) {
+				definitionIndex = out.length;
+			}
 		} else if (line.type === "context") {
-			section += line.data.lines.text;
+			context += line.data.lines.text;
 		} else if (line.type === "end") {
-			out.push(section);
+			out.push(link + leftJustify(comment) + leftJustify(context));
 		}
+	}
+
+	//Place the definition first
+	if (definitionIndex && out.length > 1) {
+		let definition = out[definitionIndex];
+		out[definitionIndex] = out[0];
+		out[0] = definition;
 	}
 
 	return out.join("\n\n");
@@ -65,7 +88,7 @@ export function activate(context: vscode.ExtensionContext) {
 			` -ttypescript` +
 			` --json` +
 			` -U -A 2` +
-			` -e '(.*//.*\\n)*(.*//.*\\s+##${tag}\\s+.*\\n)+(.*//.*\\n)*'` +
+			` -e '(.*//.*\\n)*(.*//.*\\s+##${tag}:*\\s+.*\\n)+(.*//.*\\n)*'` +
 			` ${rootpath}`;
 		console.log(`cmd: ${cmd}`);
 		let rg: ChildProcess = child_process.exec(cmd);
@@ -96,7 +119,7 @@ export function activate(context: vscode.ExtensionContext) {
 			vscode.workspace
 				.openTextDocument(
 					//vscode.Uri.parse(`tags://${tag}`)
-					{ content: formatOutput(output), language: "typescript" }
+					{ content: formatOutput(output, tag), language: "typescript" }
 				)
 				.then(doc => {
 					vscode.window.showTextDocument(doc);
@@ -108,4 +131,4 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() { }
