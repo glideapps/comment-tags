@@ -3,6 +3,7 @@
 import * as vscode from "vscode";
 import * as child_process from "child_process";
 import { ChildProcess } from "node:child_process";
+import { stringify } from "node:querystring";
 
 function leftJustify(snippet: string) {
 	let matches = snippet.match(/^[\t ]*(?=.+)/gm);
@@ -48,6 +49,60 @@ function formatOutput(stdout: readonly any[], tag) {
 	return out.join("\n\n");
 }
 
+class TagsProvider implements vscode.TextDocumentContentProvider {
+
+	rootpath: string;
+
+	constructor(rootpath: string) {
+		this.rootpath = rootpath;
+	}
+
+	provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
+		let tag = uri.path;
+
+		// Run ripgrep
+		let cmd: string =
+			`rg` +
+			` --type-add 'typescript:*.ts'` +
+			` --type-add 'typescript:*.tsx'` +
+			` -ttypescript` +
+			` --json` +
+			` -U -A 2` +
+			` -e '(.*//.*\\n)*(.*//.*\\s+##${tag}:*\\s+.*\\n)+(.*//.*\\n)*'` +
+			` ${this.rootpath}`;
+		console.log(`cmd: ${cmd}`);
+		let rg: ChildProcess = child_process.exec(cmd);
+
+		// Process rg's stdout
+		let output = Array();
+		rg.stdout?.on("data", data => {
+			let lines = data.split("\n");
+			let matches = lines.map((line: string) => {
+				let json;
+				try {
+					json = JSON.parse(line);
+				} catch (e) {
+					//JSON parse error
+					return null;
+				}
+
+				return json;
+			});
+			let filteredMatches = matches.filter((match: any) => match);
+			if (filteredMatches.length > 0) {
+				output = output.concat(filteredMatches);
+			}
+		});
+
+		return new Promise((resolve, reject) => {
+			rg.stdout?.on("end", () => {
+				resolve(formatOutput(output, tag));
+			});
+		});
+
+	}
+}
+
 // This method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -80,51 +135,15 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		// Run ripgrep
-		let cmd: string =
-			`rg` +
-			` --type-add 'typescript:*.ts'` +
-			` --type-add 'typescript:*.tsx'` +
-			` -ttypescript` +
-			` --json` +
-			` -U -A 2` +
-			` -e '(.*//.*\\n)*(.*//.*\\s+##${tag}:*\\s+.*\\n)+(.*//.*\\n)*'` +
-			` ${rootpath}`;
-		console.log(`cmd: ${cmd}`);
-		let rg: ChildProcess = child_process.exec(cmd);
-
-		// Process rg's stdout
-		let output = Array();
-		rg.stdout?.on("data", data => {
-			let lines = data.split("\n");
-			let matches = lines.map((line: string) => {
-				let json;
-				try {
-					json = JSON.parse(line);
-				} catch (e) {
-					//JSON parse error
-					return null;
-				}
-
-				return json;
-			});
-			let filteredMatches = matches.filter((match: any) => match);
-			if (filteredMatches.length > 0) {
-				output = output.concat(filteredMatches);
-			}
+		//Create Tags document
+		let registrationDisposable = vscode.workspace.registerTextDocumentContentProvider("tags", new TagsProvider(rootpath));
+		context.subscriptions.push(registrationDisposable);
+		let uri = vscode.Uri.parse('tags:' + tag);
+		vscode.workspace.openTextDocument(uri).then(doc => {
+			vscode.languages.setTextDocumentLanguage(doc, "typescript");
+			vscode.window.showTextDocument(doc, { preview: false });
 		});
 
-		// Show text document from string
-		rg.stdout?.on("end", () => {
-			vscode.workspace
-				.openTextDocument(
-					//vscode.Uri.parse(`tags://${tag}`)
-					{ content: formatOutput(output, tag), language: "typescript" }
-				)
-				.then(doc => {
-					vscode.window.showTextDocument(doc);
-				});
-		});
 	});
 
 	context.subscriptions.push(disposable);
