@@ -9,7 +9,7 @@ function leftJustify(snippet: string) {
 	let matches = snippet.match(/^[\t ]*(?=.+)/gm);
 	if (matches) {
 		let minIndent = Math.min(...matches.map(match => match.length));
-		return snippet.replace(new RegExp(`^[\\t ]{${minIndent}}`, "gm"), '');
+		return snippet.replace(new RegExp(`^[\\t ]{${minIndent}}`, "gm"), "");
 	}
 	return snippet;
 }
@@ -53,10 +53,11 @@ function formatOutput(stdout: readonly any[], tag: string) {
 	return out.join("\n\n");
 }
 
-
 class TagsLinksProvider implements vscode.DocumentLinkProvider {
-
-	provideDocumentLinks(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.DocumentLink[] | undefined {
+	provideDocumentLinks(
+		document: vscode.TextDocument,
+		token: vscode.CancellationToken
+	): vscode.DocumentLink[] | undefined {
 		let text = document.getText();
 		let lines = text.split("\n");
 		let tagsPattern: RegExp = /(?<=^\s*\/\/.*##)\w+(?=:*\b)/g;
@@ -76,13 +77,8 @@ class TagsLinksProvider implements vscode.DocumentLinkProvider {
 
 		let links = matches.map(match => {
 			return new vscode.DocumentLink(
-				new vscode.Range(
-					match.line,
-					match.index,
-					match.line,
-					match.index + match.tag.length
-				),
-				vscode.Uri.parse('tags:' + match.tag + ".tags")
+				new vscode.Range(match.line, match.index, match.line, match.index + match.tag.length),
+				vscode.Uri.parse("tags:" + match.tag + ".tags")
 			);
 		});
 
@@ -91,7 +87,6 @@ class TagsLinksProvider implements vscode.DocumentLinkProvider {
 }
 
 class TagsProvider implements vscode.TextDocumentContentProvider {
-
 	rootpath: string;
 
 	constructor(rootpath: string) {
@@ -140,20 +135,15 @@ class TagsProvider implements vscode.TextDocumentContentProvider {
 				resolve(formatOutput(output, tag));
 			});
 		});
-
 	}
 }
 
 // This method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
 	// Register document link
 	let documentLinkRegistration = vscode.languages.registerDocumentLinkProvider(
-		[
-			{ language: 'typescript' },
-			{ pattern: "*.tags" }
-		],
+		[{ language: "typescript" }, { pattern: "*.tags" }],
 		new TagsLinksProvider()
 	);
 	context.subscriptions.push(documentLinkRegistration);
@@ -164,10 +154,12 @@ export function activate(context: vscode.ExtensionContext) {
 	let workSpace = vscode.workspace.workspaceFolders;
 	if (workSpace) {
 		rootpath = workSpace[0].uri.fsPath;
-		let registrationDisposable = vscode.workspace.registerTextDocumentContentProvider("tags", new TagsProvider(rootpath));
+		let registrationDisposable = vscode.workspace.registerTextDocumentContentProvider(
+			"tags",
+			new TagsProvider(rootpath)
+		);
 		context.subscriptions.push(registrationDisposable);
 	}
-
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
@@ -178,15 +170,17 @@ export function activate(context: vscode.ExtensionContext) {
 		if (rootpath === undefined) {
 			rootpath = await vscode.window.showInputBox({ prompt: "directory to search in" });
 			if (rootpath) {
-				let registrationDisposable = vscode.workspace.registerTextDocumentContentProvider("tags", new TagsProvider(rootpath));
+				let registrationDisposable = vscode.workspace.registerTextDocumentContentProvider(
+					"tags",
+					new TagsProvider(rootpath)
+				);
 				context.subscriptions.push(registrationDisposable);
 			}
 		}
-
 	});
 
 	context.subscriptions.push(commandDisposable);
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() { }
+export function deactivate() {}
