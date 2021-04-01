@@ -143,7 +143,7 @@ class TagsProvider implements vscode.TextDocumentContentProvider {
 export function activate(context: vscode.ExtensionContext) {
 	// Register document link
 	let documentLinkRegistration = vscode.languages.registerDocumentLinkProvider(
-		[{ language: "typescript" }, { pattern: "*.tags" }],
+		[{ language: "typescript" }, { language: "typescriptreact" }, { pattern: "*.tags" }],
 		new TagsLinksProvider()
 	);
 	context.subscriptions.push(documentLinkRegistration);
