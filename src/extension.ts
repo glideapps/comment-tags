@@ -3,18 +3,17 @@
 import * as vscode from "vscode";
 import * as child_process from "child_process";
 import { ChildProcess } from "node:child_process";
-import { stringify } from "node:querystring";
 
 function leftJustify(snippet: string) {
 	let matches = snippet.match(/^[\t ]*(?=.+)/gm);
 	if (matches) {
 		let minIndent = Math.min(...matches.map(match => match.length));
-		return snippet.replace(new RegExp(`^[\\t ]{${minIndent}}`, "gm"), '');
+		return snippet.replace(new RegExp(`^[\\t ]{${minIndent}}`, "gm"), "");
 	}
 	return snippet;
 }
 
-function formatOutput(stdout: readonly any[], tag) {
+function formatOutput(stdout: readonly any[], tag: string) {
 	let out = Array();
 	let definitionIndex;
 	let link = "";
@@ -50,7 +49,6 @@ function formatOutput(stdout: readonly any[], tag) {
 }
 
 class TagsProvider implements vscode.TextDocumentContentProvider {
-
 	rootpath: string;
 
 	constructor(rootpath: string) {
@@ -94,12 +92,11 @@ class TagsProvider implements vscode.TextDocumentContentProvider {
 			}
 		});
 
-		return new Promise((resolve, reject) => {
+		return new Promise(resolve => {
 			rg.stdout?.on("end", () => {
 				resolve(formatOutput(output, tag));
 			});
 		});
-
 	}
 }
 
@@ -136,18 +133,20 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 
 		//Create Tags document
-		let registrationDisposable = vscode.workspace.registerTextDocumentContentProvider("tags", new TagsProvider(rootpath));
+		let registrationDisposable = vscode.workspace.registerTextDocumentContentProvider(
+			"tags",
+			new TagsProvider(rootpath)
+		);
 		context.subscriptions.push(registrationDisposable);
-		let uri = vscode.Uri.parse('tags:' + tag);
+		let uri = vscode.Uri.parse("tags:" + tag);
 		vscode.workspace.openTextDocument(uri).then(doc => {
 			vscode.languages.setTextDocumentLanguage(doc, "typescript");
 			vscode.window.showTextDocument(doc, { preview: false });
 		});
-
 	});
 
 	context.subscriptions.push(disposable);
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() { }
+export function deactivate() {}
