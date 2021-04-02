@@ -26,6 +26,10 @@ function formatOutput(stdout: readonly any[], tag: string) {
 			comment = "";
 			context = "";
 		} else if (line.type === "match") {
+			if (comment) {
+				out.push(link + leftJustify(comment) + leftJustify(context));
+				context = "";
+			}
 			link = `file://${line.data.path.text}#${line.data.line_number}\n`;
 			comment = line.data.lines.text;
 			if (line.data.lines.text.match(new RegExp(`\\s+##${tag}:\\s+`, "g"))) {
@@ -48,6 +52,39 @@ function formatOutput(stdout: readonly any[], tag: string) {
 	return out.join("\n\n");
 }
 
+class TagsLinksProvider implements vscode.DocumentLinkProvider {
+	provideDocumentLinks(
+		document: vscode.TextDocument,
+		token: vscode.CancellationToken
+	): vscode.DocumentLink[] | undefined {
+		let text = document.getText();
+		let lines = text.split("\n");
+		let tagsPattern: RegExp = /(?<=^\s*\/\/.*##)\w+(?=:*\b)/g;
+		let matches = Array();
+
+		for (let i = 0; i < lines.length; i++) {
+			let line = lines[i];
+			while (true) {
+				let match = tagsPattern.exec(line);
+				if (match) {
+					matches.push({ tag: match[0], line: i, index: match.index });
+				} else {
+					break;
+				}
+			}
+		}
+
+		let links = matches.map(match => {
+			return new vscode.DocumentLink(
+				new vscode.Range(match.line, match.index, match.line, match.index + match.tag.length),
+				vscode.Uri.parse("tags:" + match.tag + ".tags")
+			);
+		});
+
+		return links;
+	}
+}
+
 class TagsProvider implements vscode.TextDocumentContentProvider {
 	rootpath: string;
 
@@ -56,7 +93,7 @@ class TagsProvider implements vscode.TextDocumentContentProvider {
 	}
 
 	provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
-		let tag = uri.path;
+		let tag = uri.path.split(".")[0];
 
 		// Run ripgrep
 		let cmd: string =
@@ -103,49 +140,45 @@ class TagsProvider implements vscode.TextDocumentContentProvider {
 // This method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand("tags.tags", async () => {
-		// Get tag as active word on editor
-		let tag: string | undefined;
-		let editor = vscode.window.activeTextEditor;
-		if (editor === undefined || editor.selection.isEmpty) {
-			tag = await vscode.window.showInputBox({ prompt: "tag to search for" });
-		} else {
-			tag = editor.document.getText(editor.selection);
-		}
+	// Register document link
+	let documentLinkRegistration = vscode.languages.registerDocumentLinkProvider(
+		[{ language: "typescript" }, { language: "typescriptreact" }, { pattern: "*.tags" }],
+		new TagsLinksProvider()
+	);
+	context.subscriptions.push(documentLinkRegistration);
 
-		if (tag === undefined) {
-			return;
-		}
-
-		// Get the rootpath
-		let rootpath: string | undefined;
-		let workSpace = vscode.workspace.workspaceFolders;
-		if (workSpace === undefined) {
-			rootpath = await vscode.window.showInputBox({ prompt: "directory to search in" });
-		} else {
-			rootpath = workSpace[0].uri.fsPath;
-		}
-		if (rootpath === undefined) {
-			return;
-		}
-
-		//Create Tags document
+	// Register uri provider
+	// Get the rootpath
+	let rootpath: string | undefined;
+	let workSpace = vscode.workspace.workspaceFolders;
+	if (workSpace) {
+		rootpath = workSpace[0].uri.fsPath;
 		let registrationDisposable = vscode.workspace.registerTextDocumentContentProvider(
 			"tags",
 			new TagsProvider(rootpath)
 		);
 		context.subscriptions.push(registrationDisposable);
-		let uri = vscode.Uri.parse("tags:" + tag);
-		vscode.workspace.openTextDocument(uri).then(doc => {
-			vscode.languages.setTextDocumentLanguage(doc, "typescript");
-			vscode.window.showTextDocument(doc, { preview: false });
-		});
+	}
+
+	// The command has been defined in the package.json file
+	// Now provide the implementation of the command with registerCommand
+	// The commandId parameter must match the command field in package.json
+	let commandDisposable = vscode.commands.registerCommand("tags.tags", async () => {
+		// Get the rootpath if it is undefined
+		// and register documentContentProvider
+		if (rootpath === undefined) {
+			rootpath = await vscode.window.showInputBox({ prompt: "directory to search in" });
+			if (rootpath) {
+				let registrationDisposable = vscode.workspace.registerTextDocumentContentProvider(
+					"tags",
+					new TagsProvider(rootpath)
+				);
+				context.subscriptions.push(registrationDisposable);
+			}
+		}
 	});
 
-	context.subscriptions.push(disposable);
+	context.subscriptions.push(commandDisposable);
 }
 
 // this method is called when your extension is deactivated

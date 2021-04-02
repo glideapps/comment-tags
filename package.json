@@ -10,7 +10,8 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:tags.tags"
+		"onCommand:tags.tags",
+		"onLanguage:typescript"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -19,15 +20,7 @@
 				"command": "tags.tags",
 				"title": "Tags"
 			}
-		],
-		"menus": {
-			"editor/context": [
-				{
-					"when": "editorHasSelection",
-					"command": "tags.tags"
-				}
-			]
-		}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
