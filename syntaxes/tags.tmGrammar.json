@@ -1,0 +1,10 @@
+{
+    "scopeName": "source.tags",
+    "patterns": [{ "include": "#comment" }],
+    "repository": {
+      "comment": {
+        "match": "^\\s*//.*",
+        "name": "keyword.comment"
+      }
+    }
+}

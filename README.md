@@ -18,7 +18,7 @@ In the commands pallete, choose "See all Tags" to see all the tags in your proje
 
 ## Dependencies
 
-The extension uses the awesome [ripgrep](https://www.notion.so/Hyperlinks-in-code-VSCode-extension-58245a1b19594015a05dc26643d202fc)
+The extension uses the awesome [ripgrep](https://github.com/BurntSushi/ripgrep)
 to search your project.<br>
 For it to work, please make sure you have it installed.<br>
 Ensure "rg" is in your `$PATH` or configure the absolute path to it on the extension settings (`ripgrepPath`)

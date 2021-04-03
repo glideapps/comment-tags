@@ -30,7 +30,20 @@
 					"description": "Complete path to ripgrep, eg. /usr/bin/rg"
 				}
 			}
-		}
+		},
+		"languages": [
+			{
+			  "id": "tags",
+			  "extensions": [".tags"]
+			}
+		  ],
+		  "grammars": [
+			{
+			  "language": "tags",
+			  "scopeName": "source.tags",
+			  "path": "./syntaxes/tags.tmGrammar.json"
+			}
+		  ]
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",

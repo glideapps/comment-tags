@@ -179,15 +179,15 @@ function showAllTags(rootpath: string) {
 	rg(args).then(output => {
 		let items: vscode.QuickPickItem[] = mapFilterUndefined(output, item => {
 			if (item.type !== "match") return undefined;
+			let path: string = item.data.path.text.replace(rootpath, "").replace(/^\//, "");
 			let text: string = item.data.lines.text;
 			let labelMatch = text.match(/(?<=\s+##)\w+(?=:\s+)/);
 			if (labelMatch === null) return undefined;
-			return { label: labelMatch[0], detail: text };
+			return { label: labelMatch[0], detail: `${path}#${item.data.line_number}` };
 		});
 
 		vscode.window.showQuickPick(items).then(async selected => {
 			if (selected) {
-				console.log(`Selected: ${selected.label}`);
 				let doc = await vscode.workspace.openTextDocument(vscode.Uri.parse("tags:" + selected.label + ".tags"));
 				await vscode.window.showTextDocument(doc, { preview: false });
 			}
