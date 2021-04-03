@@ -24,11 +24,11 @@
 		"configuration": {
 			"title": "Tags",
 			"properties": {
-			  "ripgrepPath": {
-				"type": "string",
-				"default": null,
-				"description": "Complete path to ripgrep, eg. /usr/bin/rg"
-			  }
+				"ripgrepPath": {
+					"type": "string",
+					"default": null,
+					"description": "Complete path to ripgrep, eg. /usr/bin/rg"
+				}
 			}
 		}
 	},
@@ -56,5 +56,8 @@
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/shrdlu68/tags"
-	  }
+	},
+	"dependencies": {
+		"@glideapps/ts-necessities": "^2.0.3"
+	}
 }
