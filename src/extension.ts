@@ -3,7 +3,7 @@
 import * as vscode from "vscode";
 import * as child_process from "child_process";
 import { ChildProcess, ExecException } from "node:child_process";
-import { rejects } from "node:assert";
+import { mapFilterUndefined } from "@glideapps/ts-necessities";
 
 function leftJustify(snippet: string) {
 	let matches = snippet.match(/^[\t ]*(?=.+)/gm);
@@ -177,17 +177,13 @@ function showAllTags(rootpath: string) {
 		` ${rootpath}`;
 
 	rg(args).then(output => {
-		let items: Array<vscode.QuickPickItem> = output
-			.filter(item => item.type === "match")
-			.map(item => {
-				let text: string = item.data.lines.text;
-				let labelMatch = text.match(/(?<=\s+##)\w+(?=:\s+)/);
-				if (!labelMatch) {
-					return null;
-				}
-				return { label: labelMatch[0], detail: text };
-			})
-			.filter(item => item);
+		let items: vscode.QuickPickItem[] = mapFilterUndefined(output, item => {
+			if (item.type !== "match") return undefined;
+			let text: string = item.data.lines.text;
+			let labelMatch = text.match(/(?<=\s+##)\w+(?=:\s+)/);
+			if (labelMatch === null) return undefined;
+			return { label: labelMatch[0], detail: text };
+		});
 
 		vscode.window.showQuickPick(items).then(async selected => {
 			if (selected) {
