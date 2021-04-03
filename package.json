@@ -18,9 +18,19 @@
 		"commands": [
 			{
 				"command": "tags.tags",
-				"title": "Tags"
+				"title": "See all tags"
 			}
-		]
+		],
+		"configuration": {
+			"title": "Tags",
+			"properties": {
+			  "ripgrepPath": {
+				"type": "string",
+				"default": null,
+				"description": "Complete path to ripgrep, eg. /usr/bin/rg"
+			  }
+			}
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
@@ -42,5 +52,9 @@
 		"mocha": "^8.2.1",
 		"typescript": "^4.1.3",
 		"vscode-test": "^1.5.0"
-	}
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/shrdlu68/tags"
+	  }
 }

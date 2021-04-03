@@ -2,7 +2,8 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
 import * as child_process from "child_process";
-import { ChildProcess } from "node:child_process";
+import { ChildProcess, ExecException } from "node:child_process";
+import { rejects } from "node:assert";
 
 function leftJustify(snippet: string) {
 	let matches = snippet.match(/^[\t ]*(?=.+)/gm);
@@ -52,6 +53,61 @@ function formatOutput(stdout: readonly any[], tag: string) {
 	return out.join("\n\n");
 }
 
+function rgCallback(error: ExecException | null, stdout: string, stderr: string) {
+	if (error) {
+		vscode.window.showErrorMessage(`${error}`);
+	}
+}
+
+function rgPath(): string {
+	let path: string | undefined = vscode.workspace.getConfiguration("tags").get("ripgrepPath");
+	if (!path) {
+		return "rg";
+	}
+	return path;
+}
+
+function rg(
+	args: string,
+	callback:
+		| ((error: child_process.ExecException | null, stdout: string, stderr: string) => void)
+		| undefined = rgCallback
+): Promise<Array<any>> {
+	// Run ripgrep
+	let cmd = rgPath() + " ";
+	let rg: ChildProcess = child_process.exec(cmd + args, callback);
+
+	// Process rg's stdout
+	let output = Array();
+	rg.stdout?.on("data", data => {
+		let lines = data.split("\n");
+		let matches = lines.map((line: string) => {
+			let json;
+			try {
+				json = JSON.parse(line);
+			} catch (e) {
+				//JSON parse error
+				return null;
+			}
+
+			return json;
+		});
+		let filteredMatches = matches.filter((match: any) => match);
+		if (filteredMatches.length > 0) {
+			output = output.concat(filteredMatches);
+		}
+	});
+
+	return new Promise((resolve, reject) => {
+		rg.on("error", () => {
+			reject(new Error("Could not spawn ripgrep"));
+		});
+		rg.stdout?.on("end", () => {
+			resolve(output);
+		});
+	});
+}
+
 class TagsLinksProvider implements vscode.DocumentLinkProvider {
 	provideDocumentLinks(
 		document: vscode.TextDocument,
@@ -94,52 +150,65 @@ class TagsProvider implements vscode.TextDocumentContentProvider {
 
 	provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
 		let tag = uri.path.split(".")[0];
-
-		// Run ripgrep
-		let cmd: string =
-			`rg` +
+		let args: string =
 			` --type-add 'typescript:*.ts'` +
 			` --type-add 'typescript:*.tsx'` +
 			` -ttypescript` +
 			` --json` +
 			` -U -A 2` +
-			` -e '(.*//.*\\n)*(.*//.*\\s+##${tag}:*\\s+.*\\n)+(.*//.*\\n)*'` +
+			` -e '(.*//.*\\n)*(.*//.*\\s+##${tag}:*.*\\n)+(.*//.*\\n)*'` +
 			` ${this.rootpath}`;
-		console.log(`cmd: ${cmd}`);
-		let rg: ChildProcess = child_process.exec(cmd);
 
-		// Process rg's stdout
-		let output = Array();
-		rg.stdout?.on("data", data => {
-			let lines = data.split("\n");
-			let matches = lines.map((line: string) => {
-				let json;
-				try {
-					json = JSON.parse(line);
-				} catch (e) {
-					//JSON parse error
-					return null;
-				}
-
-				return json;
-			});
-			let filteredMatches = matches.filter((match: any) => match);
-			if (filteredMatches.length > 0) {
-				output = output.concat(filteredMatches);
-			}
-		});
-
-		return new Promise(resolve => {
-			rg.stdout?.on("end", () => {
+		return new Promise((resolve, reject) => {
+			rg(args).then(output => {
 				resolve(formatOutput(output, tag));
 			});
 		});
 	}
 }
 
+function showAllTags(rootpath: string) {
+	let args: string =
+		` --type-add 'typescript:*.ts'` +
+		` --type-add 'typescript:*.tsx'` +
+		` -ttypescript` +
+		` --json -U` +
+		` -e '//.*\\s+##\\w+:.*\\n'` +
+		` ${rootpath}`;
+
+	rg(args).then(output => {
+		let items: Array<vscode.QuickPickItem> = output
+			.filter(item => item.type === "match")
+			.map(item => {
+				let text: string = item.data.lines.text;
+				let labelMatch = text.match(/(?<=\s+##)\w+(?=:\s+)/);
+				if (!labelMatch) {
+					return null;
+				}
+				return { label: labelMatch[0], detail: text };
+			})
+			.filter(item => item);
+
+		vscode.window.showQuickPick(items).then(async selected => {
+			if (selected) {
+				console.log(`Selected: ${selected.label}`);
+				let doc = await vscode.workspace.openTextDocument(vscode.Uri.parse("tags:" + selected.label + ".tags"));
+				await vscode.window.showTextDocument(doc, { preview: false });
+			}
+		});
+	});
+}
+
 // This method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+	// Check for ripgrep
+	rg(`--help`, (error: ExecException | null, stdout: string, stderr: string) => {
+		if (error) {
+			vscode.window.showErrorMessage(`${error}: make sure ripgrep is installed and configure the correct path`);
+		}
+	});
+
 	// Register document link
 	let documentLinkRegistration = vscode.languages.registerDocumentLinkProvider(
 		[{ language: "typescript" }, { language: "typescriptreact" }, { pattern: "*.tags" }],
@@ -176,10 +245,11 @@ export function activate(context: vscode.ExtensionContext) {
 				context.subscriptions.push(registrationDisposable);
 			}
 		}
+
+		if (rootpath) {
+			showAllTags(rootpath);
+		}
 	});
 
 	context.subscriptions.push(commandDisposable);
 }
-
-// this method is called when your extension is deactivated
-export function deactivate() {}

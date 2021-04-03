@@ -10,11 +10,15 @@ This extension is modelled after and is an approximation of
 description.
 
 ## Sample usage
-Highlight a tag and right-click, then select "Tags" from the context menu
+
+{Cmd, Ctrl}-Click on a tag to see all sites where it is used.
+In the commands pallete, choose "See all Tags" to see all the tags in your project
 
 ![Demo](images/demo.gif)
 
 ## Dependencies
 
 The extension uses the awesome [ripgrep](https://www.notion.so/Hyperlinks-in-code-VSCode-extension-58245a1b19594015a05dc26643d202fc)
-to search your project. For it to work, please make sure you have it installed.
+to search your project.<br>
+For it to work, please make sure you have it installed.<br>
+Ensure "rg" is in your `$PATH` or configure the absolute path to it on the extension settings (`ripgrepPath`)
