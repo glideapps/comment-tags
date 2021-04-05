@@ -1,7 +1,7 @@
 {
-	"name": "tags",
-	"displayName": "tags",
-	"description": "Roam for code comments including a given tag",
+	"name": "comment-tags",
+	"displayName": "Comment Tags",
+	"description": "Put tags into your comments, à la Roam",
 	"version": "0.0.1",
 	"engines": {
 		"vscode": "^1.54.0"
@@ -10,19 +10,19 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:tags.tags",
+		"onCommand:commentTags.tags",
 		"onLanguage:typescript"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "tags.tags",
-				"title": "See all tags"
+				"command": "commentTags.tags",
+				"title": "See all comment tags"
 			}
 		],
 		"configuration": {
-			"title": "Tags",
+			"title": "Comment Tags",
 			"properties": {
 				"ripgrepPath": {
 					"type": "string",
@@ -33,17 +33,19 @@
 		},
 		"languages": [
 			{
-			  "id": "tags",
-			  "extensions": [".tags"]
+				"id": "tags",
+				"extensions": [
+					".tags"
+				]
 			}
-		  ],
-		  "grammars": [
+		],
+		"grammars": [
 			{
-			  "language": "tags",
-			  "scopeName": "source.tags",
-			  "path": "./syntaxes/tags.tmGrammar.json"
+				"language": "tags",
+				"scopeName": "source.tags",
+				"path": "./syntaxes/tags.tmGrammar.json"
 			}
-		  ]
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
@@ -68,7 +70,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/shrdlu68/tags"
+		"url": "https://github.com/glideapps/comment-tags"
 	},
 	"dependencies": {
 		"@glideapps/ts-necessities": "^2.0.3"
