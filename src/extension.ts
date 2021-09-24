@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
 import * as child_process from "child_process";
-import { ChildProcess, ExecException } from "node:child_process";
+import { ChildProcess, ExecException } from "child_process";
 import { mapFilterUndefined } from "@glideapps/ts-necessities";
 
 function leftJustify(snippet: string) {
@@ -59,12 +59,29 @@ function rgCallback(error: ExecException | null, stdout: string, stderr: string)
 	}
 }
 
+function getConfiguration(key: string) {
+	const v = vscode.workspace.getConfiguration("commentTags").get<string>(key);
+	if (v === undefined || v === null || v === "") return undefined;
+	return v;
+}
+
 function rgPath(): string {
-	let path: string | undefined = vscode.workspace.getConfiguration("tags").get("ripgrepPath");
-	if (!path) {
-		return "rg";
+	const path = getConfiguration("ripgrepPath");
+	return path ?? "rg";
+}
+
+async function getRootPath(): Promise<string | undefined> {
+	const configPath = getConfiguration("rootPath");
+	if (configPath !== undefined) {
+		return configPath;
 	}
-	return path;
+
+	const workSpace = vscode.workspace.workspaceFolders;
+	if (workSpace !== undefined && workSpace.length > 0) {
+		return workSpace[0].uri.fsPath;
+	}
+
+	return await vscode.window.showInputBox({ prompt: "directory to search in" });
 }
 
 function rg(
@@ -79,7 +96,7 @@ function rg(
 
 	// Process rg's stdout
 	let output = Array();
-	rg.stdout?.on("data", data => {
+	rg.stdout?.on("data", (data: any) => {
 		let lines = data.split("\n");
 		let matches = lines.map((line: string) => {
 			let json;
@@ -111,7 +128,7 @@ function rg(
 class TagsLinksProvider implements vscode.DocumentLinkProvider {
 	provideDocumentLinks(
 		document: vscode.TextDocument,
-		token: vscode.CancellationToken
+		_token: vscode.CancellationToken
 	): vscode.DocumentLink[] | undefined {
 		let text = document.getText();
 		let lines = text.split("\n");
@@ -142,13 +159,10 @@ class TagsLinksProvider implements vscode.DocumentLinkProvider {
 }
 
 class TagsProvider implements vscode.TextDocumentContentProvider {
-	rootpath: string;
+	async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
+		const rootPath = await getRootPath();
+		if (rootPath === undefined) return "";
 
-	constructor(rootpath: string) {
-		this.rootpath = rootpath;
-	}
-
-	provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
 		let tag = uri.path.split(".")[0];
 		let args: string =
 			` --type-add 'typescript:*.ts'` +
@@ -157,42 +171,40 @@ class TagsProvider implements vscode.TextDocumentContentProvider {
 			` --json` +
 			` -U -A 2` +
 			` -e '(.*//.*\\n)*(.*//.*\\s+##${tag}:*.*\\n)+(.*//.*\\n)*'` +
-			` ${this.rootpath}`;
+			` ${rootPath}`;
 
-		return new Promise((resolve, reject) => {
-			rg(args).then(output => {
-				resolve(formatOutput(output, tag));
-			});
-		});
+		const output = await rg(args);
+		return formatOutput(output, tag);
 	}
 }
 
-function showAllTags(rootpath: string) {
+async function showAllTags() {
+	const rootPath = await getRootPath();
+	if (rootPath === undefined) return;
+
 	let args: string =
 		` --type-add 'typescript:*.ts'` +
 		` --type-add 'typescript:*.tsx'` +
 		` -ttypescript` +
 		` --json -U` +
 		` -e '//.*\\s+##\\w+:.*\\n'` +
-		` ${rootpath}`;
+		` ${rootPath}`;
 
-	rg(args).then(output => {
-		let items: vscode.QuickPickItem[] = mapFilterUndefined(output, item => {
-			if (item.type !== "match") return undefined;
-			let path: string = item.data.path.text.replace(rootpath, "").replace(/^\//, "");
-			let text: string = item.data.lines.text;
-			let labelMatch = text.match(/(?<=\s+##)\w+(?=:\s+)/);
-			if (labelMatch === null) return undefined;
-			return { label: labelMatch[0], detail: `${path}#${item.data.line_number}` };
-		});
-
-		vscode.window.showQuickPick(items).then(async selected => {
-			if (selected) {
-				let doc = await vscode.workspace.openTextDocument(vscode.Uri.parse("tags:" + selected.label + ".tags"));
-				await vscode.window.showTextDocument(doc, { preview: false });
-			}
-		});
+	const output = await rg(args);
+	let items: vscode.QuickPickItem[] = mapFilterUndefined(output, item => {
+		if (item.type !== "match") return undefined;
+		let path: string = item.data.path.text.replace(rootPath, "").replace(/^\//, "");
+		let text: string = item.data.lines.text;
+		let labelMatch = text.match(/(?<=\s+##)\w+(?=:\s+)/);
+		if (labelMatch === null) return undefined;
+		return { label: labelMatch[0], detail: `${path}#${item.data.line_number}` };
 	});
+
+	const selected = await vscode.window.showQuickPick(items);
+	if (selected) {
+		let doc = await vscode.workspace.openTextDocument(vscode.Uri.parse("tags:" + selected.label + ".tags"));
+		await vscode.window.showTextDocument(doc, { preview: false });
+	}
 }
 
 // This method is called when your extension is activated
@@ -213,39 +225,12 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(documentLinkRegistration);
 
 	// Register uri provider
-	// Get the rootpath
-	let rootpath: string | undefined;
-	let workSpace = vscode.workspace.workspaceFolders;
-	if (workSpace) {
-		rootpath = workSpace[0].uri.fsPath;
-		let registrationDisposable = vscode.workspace.registerTextDocumentContentProvider(
-			"tags",
-			new TagsProvider(rootpath)
-		);
-		context.subscriptions.push(registrationDisposable);
-	}
+	let registrationDisposable = vscode.workspace.registerTextDocumentContentProvider("tags", new TagsProvider());
+	context.subscriptions.push(registrationDisposable);
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	let commandDisposable = vscode.commands.registerCommand("commentTags.tags", async () => {
-		// Get the rootpath if it is undefined
-		// and register documentContentProvider
-		if (rootpath === undefined) {
-			rootpath = await vscode.window.showInputBox({ prompt: "directory to search in" });
-			if (rootpath) {
-				let registrationDisposable = vscode.workspace.registerTextDocumentContentProvider(
-					"tags",
-					new TagsProvider(rootpath)
-				);
-				context.subscriptions.push(registrationDisposable);
-			}
-		}
-
-		if (rootpath) {
-			showAllTags(rootpath);
-		}
-	});
-
+	const commandDisposable = vscode.commands.registerCommand("commentTags.tags", showAllTags);
 	context.subscriptions.push(commandDisposable);
 }

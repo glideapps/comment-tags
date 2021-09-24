@@ -3,7 +3,7 @@
 	"displayName": "Comment Tags",
 	"description": "Put tags into your comments, à la Roam",
 	"publisher": "glide",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"engines": {
 		"vscode": "^1.54.0"
 	},
@@ -25,10 +25,15 @@
 		"configuration": {
 			"title": "Comment Tags",
 			"properties": {
-				"ripgrepPath": {
+				"commentTags.ripgrepPath": {
 					"type": "string",
 					"default": null,
 					"description": "Complete path to ripgrep, eg. /usr/bin/rg"
+				},
+				"commentTags.rootPath": {
+					"type": "string",
+					"default": null,
+					"description": "The root path to search in"
 				}
 			}
 		},
